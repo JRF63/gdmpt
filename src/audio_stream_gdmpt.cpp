@@ -1,35 +1,39 @@
 #include "audio_stream_gdmpt.h"
 
+#include <godot_cpp/classes/file_access.hpp>
 #include <godot_cpp/core/class_db.hpp>
 #include <godot_cpp/core/error_macros.hpp>
-#include <godot_cpp/classes/file_access.hpp>
-
 #include <type_traits>
 
 using namespace godot;
 
+constexpr double SAMPLING_RATE = 48000.0;
+
 // Does nothing. Could hook to Godot's logging functions.
-struct Logger: public std::ostream {
+struct Logger : public std::ostream {
     Logger() : std::ostream(NULL) {}
 };
 
 Ref<AudioStreamGDMPT> AudioStreamGDMPT::load_from_buffer(
     const PackedByteArray& buffer) {
     Ref<AudioStreamGDMPT> stream;
+    stream.instantiate();
 
     // Needs to be accessible by `module_ext` even if `AudioStreamGDMPT` gets
-    // moved around. Static is the simplest but this could be added as a member to
-    // `AudioStreamGDMPT` if we're assuming a `Ref<AudioStreamGDMPT>` has a fixed
-    // location in the heap.
+    // moved around. Static is the simplest but this could be added as a member
+    // to `AudioStreamGDMPT` if we're assuming a `Ref<AudioStreamGDMPT>` has a
+    // fixed location in the heap.
     static Logger logger;
 
     std::string msg = "Unable to create OpenMPT module from buffer: ";
 
     try {
         // This presumably copies the buffer internally
-        stream->module = std::make_unique<openmpt::module_ext>(buffer.ptr(), static_cast<std::size_t>(buffer.size()), logger);
+        stream->module = std::make_unique<openmpt::module_ext>(
+            buffer.ptr(), static_cast<std::size_t>(buffer.size()), logger);
 
-        stream->interactive = static_cast<openmpt::ext::interactive*>(stream->module->get_interface(openmpt::ext::interactive_id));
+        stream->interactive = static_cast<openmpt::ext::interactive*>(
+            stream->module->get_interface(openmpt::ext::interactive_id));
 
         if (stream->interactive == nullptr) {
             msg += "`get_interface` returned a `nullptr`";
@@ -43,14 +47,18 @@ Ref<AudioStreamGDMPT> AudioStreamGDMPT::load_from_buffer(
     return stream;
 }
 
-Ref<AudioStreamPlayback> AudioStreamGDMPT::load_from_file(
-    const String& path) {
+Ref<AudioStreamGDMPT> AudioStreamGDMPT::load_from_file(const String& path) {
     auto file_data = FileAccess::get_file_as_bytes(path);
-	ERR_FAIL_COND_V_MSG(file_data.is_empty(), nullptr, "Cannot open file '" + path + "'.");
-	return load_from_buffer(file_data);
+    ERR_FAIL_COND_V_MSG(
+        file_data.is_empty(), nullptr, "Cannot open file '" + path + "'.");
+    return load_from_buffer(file_data);
 }
 
 void AudioStreamGDMPT::set_loop(bool enable) {
+    if (!module) {
+        return;
+    }
+
     if (enable) {
         module->set_repeat_count(-1);
     } else {
@@ -59,14 +67,24 @@ void AudioStreamGDMPT::set_loop(bool enable) {
 }
 
 bool AudioStreamGDMPT::get_loop() const {
+    if (!module) {
+        return false;
+    }
+
     return module->get_repeat_count() == -1;
 }
 
 void AudioStreamGDMPT::set_tempo_factor(double factor) {
+    if (interactive == nullptr) {
+        return;
+    }
     interactive->set_tempo_factor(factor);
 }
 
 double AudioStreamGDMPT::get_tempo_factor() const {
+    if (interactive == nullptr) {
+        return 0.0;
+    }
     return interactive->get_tempo_factor();
 }
 
@@ -82,11 +100,13 @@ Ref<AudioStreamPlayback> AudioStreamGDMPT::_instantiate_playback() const {
     return playback;
 }
 
-String AudioStreamGDMPT::_get_stream_name() const {
-    return "";
-}
+String AudioStreamGDMPT::_get_stream_name() const { return ""; }
 
 double AudioStreamGDMPT::_get_length() const {
+    if (!module) {
+        return 0.0;
+    }
+
     double length = module->get_duration_seconds();
 
     // `get_duration_seconds` returns infinity "if the pattern data is too
@@ -101,27 +121,33 @@ double AudioStreamGDMPT::_get_length() const {
     }
 }
 
-bool AudioStreamGDMPT::_is_monophonic() const {
-    return false;
-}
+bool AudioStreamGDMPT::_is_monophonic() const { return false; }
 
 double AudioStreamGDMPT::_get_bpm() const {
+    if (!module) {
+        return 0.0;
+    }
     return module->get_current_estimated_bpm();
 }
 
-int32_t AudioStreamGDMPT::_get_beat_count() const {
-    return 0;
-}
+int32_t AudioStreamGDMPT::_get_beat_count() const { return 0; }
 
 void AudioStreamGDMPT::_bind_methods() {
-    ClassDB::bind_static_method("AudioStreamGDMPT", D_METHOD("load_from_buffer", "buffer"), &AudioStreamGDMPT::load_from_buffer);
-	ClassDB::bind_static_method("AudioStreamGDMPT", D_METHOD("load_from_file", "path"), &AudioStreamGDMPT::load_from_file);
+    ClassDB::bind_static_method("AudioStreamGDMPT",
+                                D_METHOD("load_from_buffer", "buffer"),
+                                &AudioStreamGDMPT::load_from_buffer);
+    ClassDB::bind_static_method("AudioStreamGDMPT",
+                                D_METHOD("load_from_file", "path"),
+                                &AudioStreamGDMPT::load_from_file);
 
-    ClassDB::bind_method(D_METHOD("set_loop", "enable"), &AudioStreamGDMPT::set_loop);
-	ClassDB::bind_method(D_METHOD("get_loop"), &AudioStreamGDMPT::get_loop);
+    ClassDB::bind_method(D_METHOD("set_loop", "enable"),
+                         &AudioStreamGDMPT::set_loop);
+    ClassDB::bind_method(D_METHOD("get_loop"), &AudioStreamGDMPT::get_loop);
 
-    ClassDB::bind_method(D_METHOD("set_tempo_factor", "factor"), &AudioStreamGDMPT::set_tempo_factor);
-	ClassDB::bind_method(D_METHOD("get_tempo_factor"), &AudioStreamGDMPT::get_tempo_factor);
+    ClassDB::bind_method(D_METHOD("set_tempo_factor", "factor"),
+                         &AudioStreamGDMPT::set_tempo_factor);
+    ClassDB::bind_method(D_METHOD("get_tempo_factor"),
+                         &AudioStreamGDMPT::get_tempo_factor);
 
     ADD_PROPERTY(PropertyInfo(Variant::BOOL, "loop"), "set_loop", "get_loop");
 }
@@ -135,13 +161,9 @@ void AudioStreamGDMPTPlayback::_start(double from_pos) {
     _seek(from_pos);
 }
 
-void AudioStreamGDMPTPlayback::_stop() {
-    active = false;
-}
+void AudioStreamGDMPTPlayback::_stop() { active = false; }
 
-bool AudioStreamGDMPTPlayback::_is_playing() const {
-    return active;
-}
+bool AudioStreamGDMPTPlayback::_is_playing() const { return active; }
 
 int32_t AudioStreamGDMPTPlayback::_get_loop_count() const {
     // No easy way to keep track of the number of loops
@@ -156,18 +178,21 @@ void AudioStreamGDMPTPlayback::_seek(double position) {
     stream->module->set_position_seconds(position);
 }
 
-int32_t AudioStreamGDMPTPlayback::_mix(AudioFrame* buffer,
-                                       double rate_scale,
-                                       int32_t frames) {
-    // Assuming the pointer is also aligned properly.
+int32_t AudioStreamGDMPTPlayback::_mix_resampled(AudioFrame* dst_buffer,
+                                                 int32_t frame_count) {
+    // Assuming the pointer to the buffer itself is also aligned properly.
     // Usually not important for x86/x64 but writing to non-aligned memory
     // would segfault in ARM.
     static_assert(std::alignment_of<AudioFrame>::value == 4);
 
     return stream->module->read_interleaved_stereo(
-        static_cast<int32_t>(rate_scale),
-        static_cast<size_t>(frames),
-        reinterpret_cast<float*>(buffer));
+        static_cast<int32_t>(SAMPLING_RATE),
+        static_cast<size_t>(frame_count),
+        reinterpret_cast<float*>(dst_buffer));
+}
+
+double AudioStreamGDMPTPlayback::_get_stream_sampling_rate() const {
+    return SAMPLING_RATE;
 }
 
 void AudioStreamGDMPTPlayback::_bind_methods() {
@@ -177,4 +202,3 @@ void AudioStreamGDMPTPlayback::_bind_methods() {
 AudioStreamGDMPTPlayback::AudioStreamGDMPTPlayback() {}
 
 ////////////////
-

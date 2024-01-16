@@ -2,7 +2,7 @@
 #define MODPLAYER_H
 
 #include <godot_cpp/classes/audio_stream.hpp>
-#include <godot_cpp/classes/audio_stream_playback.hpp>
+#include <godot_cpp/classes/audio_stream_playback_resampled.hpp>
 #include <libopenmpt/libopenmpt_ext.hpp>
 #include <memory>
 
@@ -25,7 +25,7 @@ class AudioStreamGDMPT : public AudioStream {
    public:
     static Ref<AudioStreamGDMPT> load_from_buffer(const PackedByteArray &buffer);
 
-    static Ref<AudioStreamPlayback> load_from_file(const String &path);
+    static Ref<AudioStreamGDMPT> load_from_file(const String &path);
 
     void set_loop(bool enable);
 
@@ -50,8 +50,8 @@ class AudioStreamGDMPT : public AudioStream {
     AudioStreamGDMPT();
 };
 
-class AudioStreamGDMPTPlayback : public AudioStreamPlayback {
-    GDCLASS(AudioStreamGDMPTPlayback, AudioStreamPlayback);
+class AudioStreamGDMPTPlayback : public AudioStreamPlaybackResampled {
+    GDCLASS(AudioStreamGDMPTPlayback, AudioStreamPlaybackResampled);
 
     friend class AudioStreamGDMPT;
 
@@ -68,16 +68,18 @@ class AudioStreamGDMPTPlayback : public AudioStreamPlayback {
 
     virtual bool _is_playing() const override;
 
-	virtual int32_t _get_loop_count() const;
+	virtual int32_t _get_loop_count() const override;
 
-	virtual double _get_playback_position() const;
+	virtual double _get_playback_position() const override;
 
 	virtual void _seek(double position) override;
 
-    virtual int32_t _mix(AudioFrame *buffer, double rate_scale, int32_t frames) override;
-
     // TODO: What is `_tag_used_streams` for?
 	// virtual void _tag_used_streams();
+
+    virtual int32_t _mix_resampled(AudioFrame *dst_buffer, int32_t frame_count) override;
+
+	virtual double _get_stream_sampling_rate() const override;
 
     AudioStreamGDMPTPlayback();
 };
