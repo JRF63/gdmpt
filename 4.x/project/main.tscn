@@ -1,0 +1,94 @@
+[gd_scene load_steps=2 format=3 uid="uid://dsa1yht7qhcp4"]
+
+[ext_resource type="Script" path="res://main.gd" id="1_y3utw"]
+
+[node name="Node2D" type="Node2D"]
+script = ExtResource("1_y3utw")
+
+[node name="AudioStreamPlayer" type="AudioStreamPlayer" parent="."]
+
+[node name="EnabledChannelsContainer" type="HFlowContainer" parent="."]
+offset_left = 26.0
+offset_top = 150.0
+offset_right = 1126.0
+offset_bottom = 250.0
+
+[node name="Label" type="Label" parent="."]
+offset_left = 56.0
+offset_top = 115.0
+offset_right = 180.0
+offset_bottom = 138.0
+text = "Toggle channels"
+
+[node name="SlidersContainer" type="HFlowContainer" parent="."]
+offset_left = 58.0
+offset_top = 517.0
+offset_right = 224.0
+offset_bottom = 622.0
+
+[node name="TempoSlider" type="VSlider" parent="SlidersContainer"]
+custom_minimum_size = Vector2(0, 80)
+layout_mode = 2
+size_flags_horizontal = 2
+min_value = 0.5
+max_value = 1.5
+step = 0.01
+value = 1.0
+
+[node name="PitchSlider" type="VSlider" parent="SlidersContainer"]
+custom_minimum_size = Vector2(0, 80)
+layout_mode = 2
+size_flags_horizontal = 2
+min_value = 0.5
+max_value = 1.5
+step = 0.01
+value = 1.0
+
+[node name="TempoLabel" type="Label" parent="."]
+offset_left = 39.0
+offset_top = 474.0
+offset_right = 93.0
+offset_bottom = 497.0
+text = "Tempo"
+
+[node name="PitchLabel" type="Label" parent="."]
+offset_left = 132.0
+offset_top = 474.0
+offset_right = 171.0
+offset_bottom = 497.0
+text = "Pitch"
+
+[node name="InterpolationButton" type="OptionButton" parent="."]
+offset_left = 44.0
+offset_top = 389.0
+offset_right = 89.0
+offset_bottom = 409.0
+
+[node name="InterpolationLabel" type="Label" parent="."]
+offset_left = 42.0
+offset_top = 360.0
+offset_right = 185.0
+offset_bottom = 383.0
+text = "Interpolation filter"
+
+[node name="PlayButton" type="Button" parent="."]
+offset_left = 291.0
+offset_top = 405.0
+offset_right = 346.0
+offset_bottom = 436.0
+text = "Play"
+
+[node name="PauseButton" type="Button" parent="."]
+offset_left = 291.0
+offset_top = 445.0
+offset_right = 332.0
+offset_bottom = 476.0
+text = "Pause"
+
+[node name="StopButton" type="Button" parent="."]
+offset_left = 291.0
+offset_top = 485.0
+offset_right = 346.0
+offset_bottom = 516.0
+text = "Stop
+"

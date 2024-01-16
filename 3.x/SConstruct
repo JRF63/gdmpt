@@ -1,0 +1,47 @@
+#!/usr/bin/env python
+import os
+import sys
+
+env = SConscript("godot-cpp/SConstruct")
+
+if env["platform"] == "windows":
+    # This code uses C++17's std::optional and libopenmpt 0.7.x is also C++17
+    env.Append(CCFLAGS=["/std:c++17"])
+else:
+    env.Append(CCFLAGS=["-std=c++17"])
+
+env["is_msvc"] = False
+if env["platform"] == "windows":
+    env["is_msvc"] = True
+
+openmpt_library = SConscript("../SCsub", exports="env")
+
+opts = Variables([], ARGUMENTS)
+opts.Add("target_name", "Name of the library to be built by SCons", "libgdmpt")
+opts.Update(env)
+
+if env["target"] == "template_release":
+    if env.get("is_msvc", False):
+        env.Append(LINKFLAGS=["/LTCG"])
+    else:
+        env.Append(LINKFLAGS=["-flto"])
+
+env.Append(LIBS=[openmpt_library])
+if env.get("is_msvc", False):
+    env.Append(LIBS=["Shlwapi"])  # Used by mpg123
+
+env.Append(CPPPATH=["src/", "../openmpt"])
+sources = Glob("src/*.cpp")
+
+library = env.SharedLibrary(
+    "project/bin/{}.{}.{}.{}{}".format(
+        env["target_name"],
+        env["platform"],
+        env["target"],
+        env["arch_suffix"],
+        env["SHLIBSUFFIX"],
+    ),
+    source=sources,
+)
+
+Default(library)

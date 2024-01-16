@@ -1,0 +1,123 @@
+Import("env")
+
+opts = Variables([], ARGUMENTS)
+opts.Add(
+    EnumVariable(
+        key="mpg123_opt",
+        help="Optimization to be used by mpg123",
+        default="OPT_GENERIC",
+        allowed_values=("OPT_GENERIC", "OPT_AVX", "OPT_NEON64"),
+    )
+)
+opts.Update(env)
+
+openmpt_env = env.Clone()
+
+openmpt_env.Append(
+    CPPDEFINES=[
+        "MPT_WITH_MPG123",
+        "MPT_WITH_OGG",
+        "MPT_WITH_VORBIS",
+        "MPT_WITH_VORBISFILE",
+        "MPT_WITH_ZLIB",
+        "LIBOPENMPT_BUILD",
+        openmpt_env["mpg123_opt"],
+    ]
+)
+
+if openmpt_env.get("is_msvc", False):
+    openmpt_env.Append(CPPDEFINES=["MPT_BUILD_MSVC", "UNICODE"])
+    openmpt_env.Append(CCFLAGS=["/Zc:preprocessor"])
+
+# OpenMPT uses exceptions
+if openmpt_env.get("is_msvc", False):
+    openmpt_env.Append(CPPDEFINES=[("_HAS_EXCEPTIONS", 1)])
+    openmpt_env.Append(CXXFLAGS=["/EHsc"])
+else:
+    openmpt_env.Append(CXXFLAGS=["-fexceptions"])
+
+# Unix-es
+if openmpt_env["platform"] != "windows":
+    openmpt_env.Append(CPPDEFINES=["STDC", "Z_HAVE_UNISTD_H"])  # Used by zlib
+
+if openmpt_env["target"] == "template_release" or openmpt_env["target"] == "release":
+    # Enable LTO for better performance
+    if openmpt_env.get("is_msvc", False):
+        openmpt_env.Append(CCFLAGS=["/GL"])
+    else:
+        openmpt_env.Append(CCFLAGS=["-flto"])
+else:
+    openmpt_env.Append(CPPDEFINES=["MPT_BUILD_CHECKED"])
+
+# `Replace` to exclude godot-cpp files
+openmpt_env.Replace(
+    CPPPATH=[
+        "openmpt/",
+        "openmpt/common/",
+        "openmpt/libopenmpt/",
+        "openmpt/sounddsp/",
+        "openmpt/soundlib/",
+        "openmpt/soundlib/plugins/",
+        "openmpt/soundlib/plugins/dmo/",
+        "openmpt/src/",
+        "openmpt/include/",
+        "openmpt/include/mpg123/src",
+        "openmpt/include/mpg123/src/compat",
+        "openmpt/include/mpg123/src/libmpg123",
+        "openmpt/include/ogg/include",
+        "openmpt/include/ogg/src",
+        "openmpt/include/vorbis/include/",
+        "openmpt/include/vorbis/lib/",
+        "openmpt/include/zlib/",
+    ]
+)
+if openmpt_env.get("is_msvc", False):
+    openmpt_env.Append(CPPPATH=["openmpt/include/mpg123/ports/MSVC++/"])
+elif openmpt_env["platform"] == "macos":
+    openmpt_env.Append(CPPPATH=["openmpt/include/mpg123/ports/Xcode/"])
+else:
+    openmpt_env.Append(CPPPATH=["openmpt/include/mpg123/ports/makefile/"])
+
+sources = Glob("openmpt/common/*.cpp")
+sources += Glob("openmpt/libopenmpt/*.cpp")
+sources += Glob("openmpt/sounddsp/*.cpp")
+sources += Glob("openmpt/soundlib/*.cpp")
+sources += Glob("openmpt/soundlib/plugins/*.cpp")
+sources += Glob("openmpt/soundlib/plugins/dmo/*.cpp")
+sources += Glob("openmpt/include/minimp3/*.c")
+
+sources += Glob("openmpt/include/mpg123/src/compat/*.c")
+sources += Glob(
+    "openmpt/include/mpg123/src/libmpg123/*.c",
+    exclude=[
+        "openmpt/include/mpg123/src/libmpg123/calctables.c",
+        "openmpt/include/mpg123/src/libmpg123/dct64_altivec.c",
+        "openmpt/include/mpg123/src/libmpg123/dct64_i386.c",
+        "openmpt/include/mpg123/src/libmpg123/dct64_i486.c",
+        "openmpt/include/mpg123/src/libmpg123/dither.c",
+        "openmpt/include/mpg123/src/libmpg123/getcpuflags_arm.c",
+        "openmpt/include/mpg123/src/libmpg123/lfs_alias.c",
+        "openmpt/include/mpg123/src/libmpg123/lfs_wrap.c",
+        "openmpt/include/mpg123/src/libmpg123/synth_altivec.c",
+        "openmpt/include/mpg123/src/libmpg123/synth_i486.c",
+        "openmpt/include/mpg123/src/libmpg123/testcpu.c",
+    ],
+)
+
+sources += Glob("openmpt/include/ogg/src/*.c")
+
+sources += Glob(
+    "openmpt/include/vorbis/lib/*.c",
+    exclude=[
+        "openmpt/include/vorbis/lib/barkmel.c",
+        "openmpt/include/vorbis/lib/psytune.c",
+        "openmpt/include/vorbis/lib/tone.c",
+    ],
+)
+
+sources += Glob("openmpt/include/zlib/*.c")
+
+suffix = ".{}.{}".format(env["platform"], env["target"])
+library = openmpt_env.StaticLibrary("bin/libopenmpt{}".format(suffix), source=sources)
+
+Return("library")

@@ -1,0 +1,11 @@
+[general]
+
+singleton=false
+load_once=true
+symbol_prefix="godot_"
+reloadable=true
+
+[entry]
+
+Windows.64="res://bin/libgdmpt.windows.release.64.dll"
+X11.64="res://bin/libgdmpt.linux.release.64.dll"
