@@ -7,41 +7,59 @@
 
 using namespace godot;
 
-constexpr double SAMPLING_RATE = 48000.0;
-
-// Does nothing. Could hook to Godot's logging functions.
-struct Logger : public std::ostream {
-    Logger() : std::ostream(NULL) {}
-};
+// Godot's sampling rate
+// https://docs.godotengine.org/en/4.2/contributing/development/core_and_modules/custom_audiostreams.html
+constexpr double SAMPLING_RATE = 44100.0;
 
 Ref<AudioStreamGDMPT> AudioStreamGDMPT::load_from_buffer(
     const PackedByteArray& buffer) {
     Ref<AudioStreamGDMPT> stream;
     stream.instantiate();
 
-    // Needs to be accessible by `module_ext` even if `AudioStreamGDMPT` gets
-    // moved around. Static is the simplest but this could be added as a member
-    // to `AudioStreamGDMPT` if we're assuming a `Ref<AudioStreamGDMPT>` has a
-    // fixed location in the heap.
-    static Logger logger;
+    int error;
 
-    std::string msg = "Unable to create OpenMPT module from buffer: ";
+    // Returns a pointer that *must* be freed with `openmpt_module_ext_destroy`. Code below is ensuring this using a `std::unique_ptr` with a custom deleter.
+    // Presumably copies the buffer internally so we don't need to store/copy `buffer`.
+    auto module = openmpt_module_ext_create_from_memory(
+        buffer.ptr(),
+        static_cast<std::size_t>(buffer.size()),
+        openmpt_log_func_silent,
+        nullptr,
+        openmpt_error_func_ignore,
+        nullptr,
+        &error,
+        nullptr,
+        nullptr);
+    if (module == nullptr) {
+        std::string msg = "Unable to create OpenMPT module from buffer: ";
 
-    try {
-        // This presumably copies the buffer internally
-        stream->module = std::make_unique<openmpt::module_ext>(
-            buffer.ptr(), static_cast<std::size_t>(buffer.size()), logger);
+        // Allocates a string that must be freed with `openmpt_free_string`.
+        const char* err_msg = openmpt_error_string(error);
 
-        stream->interactive = static_cast<openmpt::ext::interactive*>(
-            stream->module->get_interface(openmpt::ext::interactive_id));
-
-        if (stream->interactive == nullptr) {
-            msg += "`get_interface` returned a `nullptr`";
-            ERR_FAIL_V_EDMSG(nullptr, msg.c_str());
+        if (err_msg == nullptr) {
+            msg += "Out of memory while allocating string";
+        } else {
+            msg += err_msg;
+            openmpt_free_string(err_msg);
         }
-    } catch (const openmpt::exception& e) {
-        msg += e.what();
         ERR_FAIL_V_EDMSG(nullptr, msg.c_str());
+    }
+    stream->module = ModuleExtUniquePtr(module);
+
+    stream->interactive =
+        std::make_unique<openmpt_module_ext_interface_interactive>();
+    if (stream->interactive == nullptr) {
+        ERR_FAIL_V_EDMSG(nullptr,
+                         "Failed to allocate memory for `openmpt_module_ext_interface_interactive`");
+    }
+
+    error = openmpt_module_ext_get_interface(
+        stream->module.get(),
+        LIBOPENMPT_EXT_C_INTERFACE_INTERACTIVE,
+        stream->interactive.get(),
+        sizeof(openmpt_module_ext_interface_interactive));
+    if (error == 0) {
+        ERR_FAIL_V_EDMSG(nullptr, "Unable to get interface from module_ext");
     }
 
     return stream;
@@ -55,45 +73,51 @@ Ref<AudioStreamGDMPT> AudioStreamGDMPT::load_from_file(const String& path) {
 }
 
 void AudioStreamGDMPT::set_loop(bool enable) {
-    if (!module) {
-        return;
-    }
+    ERR_FAIL_COND_V(module == nullptr, void());
 
+    int32_t repeat_count;
     if (enable) {
-        module->set_repeat_count(-1);
+        repeat_count = -1;
     } else {
-        module->set_repeat_count(0);
+        repeat_count = 0;
+    }
+    int error = openmpt_module_set_repeat_count(
+        reinterpret_cast<openmpt_module*>(module.get()), repeat_count);
+    if (error == 0) {
+        ERR_FAIL_V_EDMSG(void(), "openmpt_module_set_repeat_count failed");
     }
 }
 
 bool AudioStreamGDMPT::get_loop() const {
-    if (!module) {
-        return false;
-    }
+    ERR_FAIL_COND_V(module == nullptr, false);
 
-    return module->get_repeat_count() == -1;
+    // `openmpt_module_get_repeat_count` does not report errors
+    int repeat_count = openmpt_module_get_repeat_count(
+        reinterpret_cast<openmpt_module*>(module.get()));
+    return repeat_count == -1;
 }
 
 void AudioStreamGDMPT::set_tempo_factor(double factor) {
-    if (interactive == nullptr) {
-        return;
+    ERR_FAIL_COND_V(interactive == nullptr, void());
+
+    int error = interactive->set_tempo_factor(module.get(), factor);
+    if (error == 0) {
+        ERR_FAIL_V_EDMSG(void(), "set_tempo_factor failed");
     }
-    interactive->set_tempo_factor(factor);
 }
 
 double AudioStreamGDMPT::get_tempo_factor() const {
-    if (interactive == nullptr) {
-        return 0.0;
-    }
-    return interactive->get_tempo_factor();
+    ERR_FAIL_COND_V(interactive == nullptr, 0.0);
+
+    // `get_tempo_factor` does not report errors
+    return interactive->get_tempo_factor(module.get());
 }
 
 Ref<AudioStreamPlayback> AudioStreamGDMPT::_instantiate_playback() const {
     Ref<AudioStreamGDMPTPlayback> playback;
-
     ERR_FAIL_COND_V(module == nullptr, nullptr);
-
     playback.instantiate();
+
     playback->stream = Ref<AudioStreamGDMPT>(this);
     playback->active = false;
 
@@ -103,15 +127,16 @@ Ref<AudioStreamPlayback> AudioStreamGDMPT::_instantiate_playback() const {
 String AudioStreamGDMPT::_get_stream_name() const { return ""; }
 
 double AudioStreamGDMPT::_get_length() const {
-    if (!module) {
-        return 0.0;
-    }
+    ERR_FAIL_COND_V(module == nullptr, 0.0);
 
-    double length = module->get_duration_seconds();
+    // `openmpt_module_get_duration_seconds` does not report errors
+    double length = openmpt_module_get_duration_seconds(
+        reinterpret_cast<openmpt_module*>(module.get()));
 
-    // `get_duration_seconds` returns infinity "if the pattern data is too
-    // complex". We can return 0.0 here to signal that we don't support
-    // `get_length` according to comment here:
+
+    // `openmpt_module_get_duration_seconds` returns infinity "if the pattern
+    // data is too complex". We can return 0.0 here to signal that we don't
+    // support `get_length` according to comment here:
     //
     // https://github.com/godotengine/godot/blob/9e65c5c0f4f8944d17fc7f5b05682206e9348d81/modules/vorbis/audio_stream_ogg_vorbis.h#L151
     if (std::isfinite(length)) {
@@ -121,13 +146,17 @@ double AudioStreamGDMPT::_get_length() const {
     }
 }
 
-bool AudioStreamGDMPT::_is_monophonic() const { return false; }
+bool AudioStreamGDMPT::_is_monophonic() const {
+    // `AudioStreamGDMPT` is stereo
+    return false;
+}
 
 double AudioStreamGDMPT::_get_bpm() const {
-    if (!module) {
-        return 0.0;
-    }
-    return module->get_current_estimated_bpm();
+    ERR_FAIL_COND_V(module == nullptr, 0.0);
+
+    // `openmpt_module_get_current_estimated_bpm` does not report errors
+    return openmpt_module_get_current_estimated_bpm(
+        reinterpret_cast<openmpt_module*>(module.get()));
 }
 
 int32_t AudioStreamGDMPT::_get_beat_count() const { return 0; }
@@ -171,28 +200,34 @@ int32_t AudioStreamGDMPTPlayback::_get_loop_count() const {
 }
 
 double AudioStreamGDMPTPlayback::_get_playback_position() const {
-    return stream->module->get_position_seconds();
+    ERR_FAIL_COND_V(stream == nullptr, 0.0);
+
+    // `openmpt_module_get_position_seconds` does not report errors
+    return openmpt_module_get_position_seconds(reinterpret_cast<openmpt_module*>(stream->module.get()));
 }
 
 void AudioStreamGDMPTPlayback::_seek(double position) {
-    stream->module->set_position_seconds(position);
+    ERR_FAIL_COND_V(stream == nullptr, void());
+
+    // `openmpt_module_set_position_seconds` does not report errors
+    openmpt_module_set_position_seconds(reinterpret_cast<openmpt_module*>(stream->module.get()), position);
 }
 
-int32_t AudioStreamGDMPTPlayback::_mix_resampled(AudioFrame* dst_buffer,
-                                                 int32_t frame_count) {
-    // Assuming the pointer to the buffer itself is also aligned properly.
+int32_t AudioStreamGDMPTPlayback::_mix(AudioFrame *buffer, double rate_scale, int32_t frames) {
+    // Check if the input and output buffers are aligned.
     // Usually not important for x86/x64 but writing to non-aligned memory
     // would segfault in ARM.
-    static_assert(std::alignment_of<AudioFrame>::value == 4);
+    static_assert(std::alignment_of<AudioFrame>::value ==
+                  std::alignment_of<float>::value);
 
-    return stream->module->read_interleaved_stereo(
-        static_cast<int32_t>(SAMPLING_RATE),
-        static_cast<size_t>(frame_count),
-        reinterpret_cast<float*>(dst_buffer));
-}
+    ERR_FAIL_COND_V(stream == nullptr, 0);
 
-double AudioStreamGDMPTPlayback::_get_stream_sampling_rate() const {
-    return SAMPLING_RATE;
+    return openmpt_module_read_interleaved_float_stereo(
+        reinterpret_cast<openmpt_module*>(stream->module.get()),
+        static_cast<int32_t>(SAMPLING_RATE * rate_scale),
+        static_cast<size_t>(frames),
+        reinterpret_cast<float*>(buffer)
+    );
 }
 
 void AudioStreamGDMPTPlayback::_bind_methods() {
