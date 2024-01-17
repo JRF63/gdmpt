@@ -1,7 +1,13 @@
 # GDMPT
 
-Building currently requires enabling exceptions:
+Debug build:
 
 ```sh
-scons platform=windows disable_exceptions=False
+scons platform=windows
+```
+
+Release build:
+
+```sh
+scons platform=windows target=template_release
 ```

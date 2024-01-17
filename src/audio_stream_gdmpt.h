@@ -10,7 +10,7 @@
 namespace godot {
 
 struct OpenMPTModuleExtDeleter {
-    void operator()(openmpt_module_ext *p) { openmpt_module_ext_destroy(p); }
+	void operator()(openmpt_module_ext *p) { openmpt_module_ext_destroy(p); }
 };
 
 using ModuleExtUniquePtr = std::unique_ptr<openmpt_module_ext, OpenMPTModuleExtDeleter>;
@@ -19,77 +19,77 @@ using InteractiveUniquePtr = std::unique_ptr<openmpt_module_ext_interface_intera
 class AudioStreamGDMPTPlayback;
 
 class AudioStreamGDMPT : public AudioStream {
-    GDCLASS(AudioStreamGDMPT, AudioStream)
+	GDCLASS(AudioStreamGDMPT, AudioStream)
 
-    friend class AudioStreamGDMPTPlayback;
+	friend class AudioStreamGDMPTPlayback;
 
-    ModuleExtUniquePtr module;
-    InteractiveUniquePtr interactive;
+	ModuleExtUniquePtr module;
+	InteractiveUniquePtr interactive;
 
-   protected:
-    static void _bind_methods();
+protected:
+	static void _bind_methods();
 
-   public:
-    static Ref<AudioStreamGDMPT> load_from_buffer(
-        const PackedByteArray &buffer);
+public:
+	static Ref<AudioStreamGDMPT> load_from_buffer(
+			const PackedByteArray &buffer);
 
-    static Ref<AudioStreamGDMPT> load_from_file(const String &path);
+	static Ref<AudioStreamGDMPT> load_from_file(const String &path);
 
-    void set_loop(bool enable);
+	void set_loop(bool enable);
 
-    bool get_loop() const;
+	bool get_loop() const;
 
-    void set_tempo_factor(double factor);
+	void set_tempo_factor(double factor);
 
-    double get_tempo_factor() const;
+	double get_tempo_factor() const;
 
-    virtual Ref<AudioStreamPlayback> _instantiate_playback() const override;
+	virtual Ref<AudioStreamPlayback> _instantiate_playback() const override;
 
-    virtual String _get_stream_name() const override;
+	virtual String _get_stream_name() const override;
 
-    virtual double _get_length() const override;
+	virtual double _get_length() const override;
 
-    virtual bool _is_monophonic() const override;
+	virtual bool _is_monophonic() const override;
 
-    virtual double _get_bpm() const override;
+	virtual double _get_bpm() const override;
 
-    virtual int32_t _get_beat_count() const override;
+	virtual int32_t _get_beat_count() const override;
 
-    AudioStreamGDMPT();
+	AudioStreamGDMPT();
 };
 
 class AudioStreamGDMPTPlayback : public AudioStreamPlayback {
-    GDCLASS(AudioStreamGDMPTPlayback, AudioStreamPlayback);
+	GDCLASS(AudioStreamGDMPTPlayback, AudioStreamPlayback);
 
-    friend class AudioStreamGDMPT;
+	friend class AudioStreamGDMPT;
 
-    Ref<AudioStreamGDMPT> stream;
-    bool active = false;
+	Ref<AudioStreamGDMPT> stream;
+	bool active = false;
 
-   protected:
-    static void _bind_methods();
+protected:
+	static void _bind_methods();
 
-   public:
-    virtual void _start(double from_pos) override;
+public:
+	virtual void _start(double from_pos) override;
 
-    virtual void _stop() override;
+	virtual void _stop() override;
 
-    virtual bool _is_playing() const override;
+	virtual bool _is_playing() const override;
 
-    virtual int32_t _get_loop_count() const override;
+	virtual int32_t _get_loop_count() const override;
 
-    virtual double _get_playback_position() const override;
+	virtual double _get_playback_position() const override;
 
-    virtual void _seek(double position) override;
+	virtual void _seek(double position) override;
 
-    virtual int32_t _mix(AudioFrame *buffer, double rate_scale, int32_t frames) override;
+	virtual int32_t _mix(AudioFrame *buffer, double rate_scale, int32_t frames) override;
 
-    // TODO: What is `_tag_used_streams` for?
-    // virtual void _tag_used_streams();
+	// TODO: What is `_tag_used_streams` for?
+	// virtual void _tag_used_streams();
 
-    AudioStreamGDMPTPlayback();
+	AudioStreamGDMPTPlayback();
 };
 
-}  // namespace godot
+} // namespace godot
 
 #endif
