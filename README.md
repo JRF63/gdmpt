@@ -14,7 +14,7 @@ git submodule upate --init --recursive
 
 Required tools
 - [SCons](https://scons.org/doc/production/HTML/scons-user/ch01s02.html)
-- [MSBuild](https://visualstudio.microsoft.com/downloads/?q=build+tools). Either Visual Studio or just the Build Tools.
+- [MSBuild](https://visualstudio.microsoft.com/downloads/?q=build+tools). Either Visual Studio or just the Build Tools. Only for Windows builds.
 
 ### Windows
 
@@ -40,7 +40,7 @@ scons platform=windows vs_toolchain=vs2022win10 target=template_release
 
 ### Linux
 
-libopenmpt is available in most (Linux distros](https://wiki.openmpt.org/Libopenmpt#Distribution_packages).
+libopenmpt is available in most [Linux distros](https://wiki.openmpt.org/Libopenmpt#Distribution_packages).
 
 In Ubuntu for example:
 
