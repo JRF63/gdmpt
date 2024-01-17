@@ -7,3 +7,6 @@ compatibility_minimum = "4.2.1"
 
 windows.debug.x86_64 = "res://bin/libgdmpt.windows.template_debug.x86_64.dll"
 windows.release.x86_64 = "res://bin/libgdmpt.windows.template_release.x86_64.dll"
+
+linux.debug.x86_64 = "res://bin/libgdmpt.linux.template_debug.x86_64.so"
+linux.release.x86_64 = "res://bin/libgdmpt.linux.template_release.x86_64.so"
