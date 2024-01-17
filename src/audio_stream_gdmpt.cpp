@@ -117,8 +117,9 @@ double AudioStreamGDMPT::get_tempo_factor() const {
 }
 
 Ref<AudioStreamPlayback> AudioStreamGDMPT::_instantiate_playback() const {
+    ERR_FAIL_COND_V(module == nullptr, nullptr);
+    
 	Ref<AudioStreamGDMPTPlayback> playback;
-	ERR_FAIL_COND_V(module == nullptr, nullptr);
 	playback.instantiate();
 
 	playback->stream = Ref<AudioStreamGDMPT>(this);
