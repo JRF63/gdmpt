@@ -4,7 +4,7 @@
 #include <libopenmpt/libopenmpt_ext.h>
 
 #include <godot_cpp/classes/audio_stream.hpp>
-#include <godot_cpp/classes/audio_stream_playback.hpp>
+#include <godot_cpp/classes/audio_stream_playback_resampled.hpp>
 #include <memory>
 
 namespace godot {
@@ -58,8 +58,8 @@ public:
 	AudioStreamGDMPT();
 };
 
-class AudioStreamGDMPTPlayback : public AudioStreamPlayback {
-	GDCLASS(AudioStreamGDMPTPlayback, AudioStreamPlayback);
+class AudioStreamGDMPTPlayback : public AudioStreamPlaybackResampled {
+	GDCLASS(AudioStreamGDMPTPlayback, AudioStreamPlaybackResampled);
 
 	friend class AudioStreamGDMPT;
 
@@ -82,10 +82,9 @@ public:
 
 	virtual void _seek(double position) override;
 
-	virtual int32_t _mix(AudioFrame *buffer, double rate_scale, int32_t frames) override;
+	virtual int32_t _mix_resampled(AudioFrame *dst_buffer, int32_t frame_count) override;
 
-	// TODO: What is `_tag_used_streams` for?
-	// virtual void _tag_used_streams();
+	virtual double _get_stream_sampling_rate() const override;
 
 	AudioStreamGDMPTPlayback();
 };

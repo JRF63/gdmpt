@@ -117,8 +117,8 @@ double AudioStreamGDMPT::get_tempo_factor() const {
 }
 
 Ref<AudioStreamPlayback> AudioStreamGDMPT::_instantiate_playback() const {
-    ERR_FAIL_COND_V(module == nullptr, nullptr);
-    
+	ERR_FAIL_COND_V(module == nullptr, nullptr);
+
 	Ref<AudioStreamGDMPTPlayback> playback;
 	playback.instantiate();
 
@@ -218,21 +218,25 @@ void AudioStreamGDMPTPlayback::_seek(double position) {
 			reinterpret_cast<openmpt_module *>(stream->module.get()), position);
 }
 
-int32_t AudioStreamGDMPTPlayback::_mix(AudioFrame *buffer, double rate_scale,
-		int32_t frames) {
-	// Check if the input and output buffers are aligned.
+int32_t AudioStreamGDMPTPlayback::_mix_resampled(AudioFrame *dst_buffer,
+		int32_t frame_count) {
+	// Check if `dst_buffer` and the input to
+	// `openmpt_module_read_interleaved_float_stereo` have the same alignment.
+	//
 	// Usually not important for x86/x64 but writing to non-aligned memory
 	// would segfault in ARM.
 	static_assert(std::alignment_of<AudioFrame>::value ==
 			std::alignment_of<float>::value);
 
-	ERR_FAIL_COND_V(stream == nullptr, 0);
-
 	return openmpt_module_read_interleaved_float_stereo(
 			reinterpret_cast<openmpt_module *>(stream->module.get()),
-			static_cast<int32_t>(SAMPLING_RATE * rate_scale),
-			static_cast<size_t>(frames),
-			reinterpret_cast<float *>(buffer));
+			static_cast<int32_t>(SAMPLING_RATE),
+			static_cast<size_t>(frame_count),
+			reinterpret_cast<float *>(dst_buffer));
+}
+
+double AudioStreamGDMPTPlayback::_get_stream_sampling_rate() const {
+	return SAMPLING_RATE;
 }
 
 void AudioStreamGDMPTPlayback::_bind_methods() {
