@@ -22,7 +22,7 @@ Ref<AudioStreamGDMPT> AudioStreamGDMPT::load_from_buffer(
 	// Code below is ensuring this using a `std::unique_ptr` with a custom
 	// deleter. Presumably copies the buffer internally so we don't need to
 	// store/copy `buffer`.
-	auto module = openmpt_module_ext_create_from_memory(
+	auto ptr = openmpt_module_ext_create_from_memory(
 			buffer.ptr(),
 			static_cast<std::size_t>(buffer.size()),
 			openmpt_log_func_silent,
@@ -32,7 +32,7 @@ Ref<AudioStreamGDMPT> AudioStreamGDMPT::load_from_buffer(
 			&error,
 			nullptr,
 			nullptr);
-	if (module == nullptr) {
+	if (ptr == nullptr) {
 		std::string msg = "Unable to create OpenMPT module from buffer: ";
 
 		// Allocates a string that must be freed with `openmpt_free_string`.
@@ -46,37 +46,39 @@ Ref<AudioStreamGDMPT> AudioStreamGDMPT::load_from_buffer(
 		}
 		ERR_FAIL_V_EDMSG(nullptr, msg.c_str());
 	}
-	stream->module = ModuleExtUniquePtr(module);
+	auto module = ModuleExtUniquePtr(ptr);
 
-	stream->interactive =
+	auto interactive =
 			std::make_unique<openmpt_module_ext_interface_interactive>();
-	if (stream->interactive == nullptr) {
+	if (interactive == nullptr) {
 		ERR_FAIL_V_EDMSG(nullptr,
 				"Failed to allocate memory for "
 				"`openmpt_module_ext_interface_interactive`");
 	}
 
 	error = openmpt_module_ext_get_interface(
-			stream->module.get(),
+			module.get(),
 			LIBOPENMPT_EXT_C_INTERFACE_INTERACTIVE,
-			stream->interactive.get(),
+			interactive.get(),
 			sizeof(openmpt_module_ext_interface_interactive));
 	if (error == 0) {
 		ERR_FAIL_V_EDMSG(nullptr, "Unable to get interface from module_ext");
 	}
+
+	stream->module.set_pointers(std::move(module), std::move(interactive));
 
 	return stream;
 }
 
 Ref<AudioStreamGDMPT> AudioStreamGDMPT::load_from_file(const String &path) {
 	auto file_data = FileAccess::get_file_as_bytes(path);
-	ERR_FAIL_COND_V_MSG(
+	ERR_FAIL_COND_V_EDMSG(
 			file_data.is_empty(), nullptr, "Cannot open file '" + path + "'.");
 	return load_from_buffer(file_data);
 }
 
 void AudioStreamGDMPT::set_loop(bool enable) {
-	ERR_FAIL_COND_V(module == nullptr, void());
+	ERR_FAIL_COND(module.is_null());
 
 	int32_t repeat_count;
 	if (enable) {
@@ -84,40 +86,45 @@ void AudioStreamGDMPT::set_loop(bool enable) {
 	} else {
 		repeat_count = 0;
 	}
-	int error = openmpt_module_set_repeat_count(
-			reinterpret_cast<openmpt_module *>(module.get()), repeat_count);
+	int error = module.set_repeat_count(repeat_count);
 	if (error == 0) {
-		ERR_FAIL_V_EDMSG(void(), "openmpt_module_set_repeat_count failed");
+		ERR_FAIL_EDMSG("`openmpt_module_set_repeat_count` failed");
 	}
 }
 
 bool AudioStreamGDMPT::get_loop() const {
-	ERR_FAIL_COND_V(module == nullptr, false);
+	ERR_FAIL_COND_V(module.is_null(), false);
 
-	// `openmpt_module_get_repeat_count` does not report errors
-	int repeat_count = openmpt_module_get_repeat_count(
-			reinterpret_cast<openmpt_module *>(module.get()));
-	return repeat_count == -1;
+	auto repeat_count = module.get_repeat_count();
+	if (repeat_count) {
+		return repeat_count.value() == -1;
+	} else {
+		ERR_FAIL_V_EDMSG(false, "`openmpt_module_get_repeat_count` failed");
+	}
 }
 
 void AudioStreamGDMPT::set_tempo_factor(double factor) {
-	ERR_FAIL_COND_V(interactive == nullptr, void());
+	ERR_FAIL_COND(module.is_null());
 
-	int error = interactive->set_tempo_factor(module.get(), factor);
+	int error = module.set_tempo_factor(factor);
 	if (error == 0) {
-		ERR_FAIL_V_EDMSG(void(), "set_tempo_factor failed");
+		ERR_FAIL_EDMSG("`set_tempo_factor` failed");
 	}
 }
 
 double AudioStreamGDMPT::get_tempo_factor() const {
-	ERR_FAIL_COND_V(interactive == nullptr, 0.0);
+	ERR_FAIL_COND_V(module.is_null(), 0.0);
 
-	// `get_tempo_factor` does not report errors
-	return interactive->get_tempo_factor(module.get());
+	auto tempo_factor = module.get_tempo_factor();
+	if (tempo_factor) {
+		return tempo_factor.value();
+	} else {
+		ERR_FAIL_V_EDMSG(0.0, "`get_tempo_factor` failed");
+	}
 }
 
 Ref<AudioStreamPlayback> AudioStreamGDMPT::_instantiate_playback() const {
-	ERR_FAIL_COND_V(module == nullptr, nullptr);
+	ERR_FAIL_COND_V(module.is_null(), nullptr);
 
 	Ref<AudioStreamGDMPTPlayback> playback;
 	playback.instantiate();
@@ -131,21 +138,22 @@ Ref<AudioStreamPlayback> AudioStreamGDMPT::_instantiate_playback() const {
 String AudioStreamGDMPT::_get_stream_name() const { return ""; }
 
 double AudioStreamGDMPT::_get_length() const {
-	ERR_FAIL_COND_V(module == nullptr, 0.0);
+	ERR_FAIL_COND_V(module.is_null(), 0.0);
 
-	// `openmpt_module_get_duration_seconds` does not report errors
-	double length = openmpt_module_get_duration_seconds(
-			reinterpret_cast<openmpt_module *>(module.get()));
-
-	// `openmpt_module_get_duration_seconds` returns infinity "if the pattern
-	// data is too complex". We can return 0.0 here to signal that we don't
-	// support `get_length` according to comment here:
-	//
-	// https://github.com/godotengine/godot/blob/9e65c5c0f4f8944d17fc7f5b05682206e9348d81/modules/vorbis/audio_stream_ogg_vorbis.h#L151
-	if (std::isfinite(length)) {
-		return length;
+	auto length = module.get_duration_seconds();
+	if (length) {
+		// `openmpt_module_get_duration_seconds` returns infinity "if the pattern
+		// data is too complex". We can return 0.0 here to signal that we don't
+		// support `get_length` according to comment here:
+		//
+		// https://github.com/godotengine/godot/blob/9e65c5c0f4f8944d17fc7f5b05682206e9348d81/modules/vorbis/audio_stream_ogg_vorbis.h#L151
+		if (std::isfinite(length.value())) {
+			return length.value();
+		} else {
+			return 0.0;
+		}
 	} else {
-		return 0.0;
+		ERR_FAIL_V_EDMSG(0.0, "`openmpt_module_get_duration_seconds` failed");
 	}
 }
 
@@ -155,11 +163,14 @@ bool AudioStreamGDMPT::_is_monophonic() const {
 }
 
 double AudioStreamGDMPT::_get_bpm() const {
-	ERR_FAIL_COND_V(module == nullptr, 0.0);
+	ERR_FAIL_COND_V(module.is_null(), 0.0);
 
-	// `openmpt_module_get_current_estimated_bpm` does not report errors
-	return openmpt_module_get_current_estimated_bpm(
-			reinterpret_cast<openmpt_module *>(module.get()));
+	auto bpm = module.get_current_estimated_bpm();
+	if (bpm) {
+		return bpm.value();
+	} else {
+		ERR_FAIL_V_EDMSG(0, "`openmpt_module_get_current_estimated_bpm` failed");
+	}
 }
 
 int32_t AudioStreamGDMPT::_get_beat_count() const { return 0; }
@@ -205,17 +216,21 @@ int32_t AudioStreamGDMPTPlayback::_get_loop_count() const {
 double AudioStreamGDMPTPlayback::_get_playback_position() const {
 	ERR_FAIL_COND_V(stream == nullptr, 0.0);
 
-	// `openmpt_module_get_position_seconds` does not report errors
-	return openmpt_module_get_position_seconds(
-			reinterpret_cast<openmpt_module *>(stream->module.get()));
+	auto position = stream->module.get_position_seconds();
+	if (position) {
+		return position.value();
+	} else {
+		ERR_FAIL_V_EDMSG(0.0, "`openmpt_module_get_position_seconds` failed");
+	}
 }
 
 void AudioStreamGDMPTPlayback::_seek(double position) {
-	ERR_FAIL_COND_V(stream == nullptr, void());
+	ERR_FAIL_COND(stream == nullptr);
 
-	// `openmpt_module_set_position_seconds` does not report errors
-	openmpt_module_set_position_seconds(
-			reinterpret_cast<openmpt_module *>(stream->module.get()), position);
+	auto new_position = stream->module.set_position_seconds(position);
+	if (!new_position) {
+		ERR_FAIL_EDMSG("`openmpt_module_set_position_seconds` failed");
+	}
 }
 
 int32_t AudioStreamGDMPTPlayback::_mix_resampled(AudioFrame *dst_buffer,
@@ -228,11 +243,15 @@ int32_t AudioStreamGDMPTPlayback::_mix_resampled(AudioFrame *dst_buffer,
 	static_assert(std::alignment_of<AudioFrame>::value ==
 			std::alignment_of<float>::value);
 
-	return openmpt_module_read_interleaved_float_stereo(
-			reinterpret_cast<openmpt_module *>(stream->module.get()),
+	auto frames_rendered = stream->module.read_interleaved_float_stereo(
 			static_cast<int32_t>(SAMPLING_RATE),
 			static_cast<size_t>(frame_count),
 			reinterpret_cast<float *>(dst_buffer));
+	if (frames_rendered) {
+		return frames_rendered.value();
+	} else {
+		ERR_FAIL_V_EDMSG(0, "`openmpt_module_read_interleaved_float_stereo` failed");
+	}
 }
 
 double AudioStreamGDMPTPlayback::_get_stream_sampling_rate() const {

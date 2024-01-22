@@ -1,20 +1,12 @@
-#ifndef MODPLAYER_H
-#define MODPLAYER_H
+#ifndef AUDIO_STREAM_GDMPT_H
+#define AUDIO_STREAM_GDMPT_H
 
-#include <libopenmpt/libopenmpt_ext.h>
+#include "openmpt_module.h"
 
 #include <godot_cpp/classes/audio_stream.hpp>
 #include <godot_cpp/classes/audio_stream_playback_resampled.hpp>
-#include <memory>
 
 namespace godot {
-
-struct OpenMPTModuleExtDeleter {
-	void operator()(openmpt_module_ext *p) { openmpt_module_ext_destroy(p); }
-};
-
-using ModuleExtUniquePtr = std::unique_ptr<openmpt_module_ext, OpenMPTModuleExtDeleter>;
-using InteractiveUniquePtr = std::unique_ptr<openmpt_module_ext_interface_interactive>;
 
 class AudioStreamGDMPTPlayback;
 
@@ -23,8 +15,7 @@ class AudioStreamGDMPT : public AudioStream {
 
 	friend class AudioStreamGDMPTPlayback;
 
-	ModuleExtUniquePtr module;
-	InteractiveUniquePtr interactive;
+	OpenMPTModule module;
 
 protected:
 	static void _bind_methods();
