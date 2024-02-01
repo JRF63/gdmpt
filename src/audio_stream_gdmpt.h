@@ -16,6 +16,10 @@ class AudioStreamGDMPT : public AudioStream {
 	friend class AudioStreamGDMPTPlayback;
 
 	OpenMPTModule module;
+	String filename;
+	bool loop = false;
+
+	void emit_looping_signal();
 
 protected:
 	static void _bind_methods();
@@ -26,13 +30,20 @@ public:
 
 	static Ref<AudioStreamGDMPT> load_from_file(const String &path);
 
-	void set_loop(bool enable);
+	String get_filename() const;
 
+	void set_loop(bool enable);
 	bool get_loop() const;
 
 	void set_tempo_factor(double factor);
-
 	double get_tempo_factor() const;
+
+	int32_t get_num_channels() const;
+
+	void set_channel_volume(int32_t channel, double volume);
+	double get_channel_volume(int32_t channel) const;
+
+	// Overrides
 
 	virtual Ref<AudioStreamPlayback> _instantiate_playback() const override;
 
@@ -61,6 +72,7 @@ protected:
 	static void _bind_methods();
 
 public:
+	// Overrides
 	virtual void _start(double from_pos) override;
 
 	virtual void _stop() override;

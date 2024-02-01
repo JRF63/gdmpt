@@ -61,6 +61,40 @@ std::optional<double> OpenMPTModule::get_tempo_factor() const {
 	}
 }
 
+std::optional<int32_t> OpenMPTModule::get_num_channels() const {
+	const std::lock_guard<std::mutex> lock(mutex);
+
+	auto module_ptr = reinterpret_cast<openmpt_module *>(module.get());
+	int32_t num_channels = openmpt_module_get_num_channels(module_ptr);
+
+	int error = openmpt_module_error_get_last(module_ptr);
+	if (error == OPENMPT_ERROR_OK) {
+		return num_channels;
+	} else {
+		return std::nullopt;
+	}
+}
+
+int OpenMPTModule::set_channel_volume(int32_t channel, double volume) {
+	const std::lock_guard<std::mutex> lock(mutex);
+
+	return interactive->set_channel_volume(module.get(), channel, volume);
+}
+
+std::optional<double> OpenMPTModule::get_channel_volume(int32_t channel) const {
+	const std::lock_guard<std::mutex> lock(mutex);
+
+	auto module_ptr = reinterpret_cast<openmpt_module *>(module.get());
+	double volume = interactive->get_channel_volume(module.get(), channel);
+
+	int error = openmpt_module_error_get_last(module_ptr);
+	if (error == OPENMPT_ERROR_OK) {
+		return volume;
+	} else {
+		return std::nullopt;
+	}
+}
+
 std::optional<double> OpenMPTModule::get_duration_seconds() const {
 	const std::lock_guard<std::mutex> lock(mutex);
 	

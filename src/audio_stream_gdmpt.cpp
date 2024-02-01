@@ -74,7 +74,13 @@ Ref<AudioStreamGDMPT> AudioStreamGDMPT::load_from_file(const String &path) {
 	auto file_data = FileAccess::get_file_as_bytes(path);
 	ERR_FAIL_COND_V_EDMSG(
 			file_data.is_empty(), nullptr, "Cannot open file '" + path + "'.");
-	return load_from_buffer(file_data);
+	auto stream = load_from_buffer(file_data);
+	stream->filename = path;
+	return stream;
+}
+
+String AudioStreamGDMPT::get_filename() const {
+	return filename;
 }
 
 void AudioStreamGDMPT::set_loop(bool enable) {
@@ -120,6 +126,37 @@ double AudioStreamGDMPT::get_tempo_factor() const {
 		return tempo_factor.value();
 	} else {
 		ERR_FAIL_V_EDMSG(0.0, "`get_tempo_factor` failed");
+	}
+}
+
+int32_t AudioStreamGDMPT::get_num_channels() const {
+	ERR_FAIL_COND_V(module.is_null(), 0);
+
+	auto num_channels = module.get_num_channels();
+	if (num_channels) {
+		return num_channels.value();
+	} else {
+		ERR_FAIL_V_EDMSG(0.0, "`get_num_channels` failed");
+	}
+}
+
+void AudioStreamGDMPT::set_channel_volume(int32_t channel, double volume) {
+	ERR_FAIL_COND(module.is_null());
+
+	int error = module.set_channel_volume(channel, volume);
+	if (error == 0) {
+		ERR_FAIL_EDMSG("`set_channel_volume` failed");
+	} 
+}
+
+double godot::AudioStreamGDMPT::get_channel_volume(int32_t channel) const {
+	ERR_FAIL_COND(module.is_null());
+
+	auto volume = module.get_channel_volume(channel);
+	if (volume) {
+		return volume.value();
+	} else {
+		ERR_FAIL_V_EDMSG(0.0, "`get_channel_volume` failed");
 	}
 }
 
@@ -214,7 +251,8 @@ int32_t AudioStreamGDMPTPlayback::_get_loop_count() const {
 }
 
 double AudioStreamGDMPTPlayback::_get_playback_position() const {
-	ERR_FAIL_COND_V(stream == nullptr, 0.0);
+	ERR_FAIL_NULL_V(stream, 0.0);
+	ERR_FAIL_COND_V(stream->module.is_null(), 0.0);
 
 	auto position = stream->module.get_position_seconds();
 	if (position) {
@@ -225,7 +263,8 @@ double AudioStreamGDMPTPlayback::_get_playback_position() const {
 }
 
 void AudioStreamGDMPTPlayback::_seek(double position) {
-	ERR_FAIL_COND(stream == nullptr);
+	ERR_FAIL_NULL(stream);
+	ERR_FAIL_COND(stream->module.is_null());
 
 	auto new_position = stream->module.set_position_seconds(position);
 	if (!new_position) {

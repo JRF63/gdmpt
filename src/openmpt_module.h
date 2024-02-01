@@ -35,6 +35,11 @@ public:
 	int set_tempo_factor(double factor);
 	std::optional<double> get_tempo_factor() const;
 
+	std::optional<int32_t> get_num_channels() const;
+
+	int set_channel_volume(int32_t channel, double volume);
+	std::optional<double> get_channel_volume(int32_t channel) const;
+
 	std::optional<double> get_duration_seconds() const;
 
 	std::optional<double> get_current_estimated_bpm() const;
