@@ -5,11 +5,15 @@
 #include <godot_cpp/core/error_macros.hpp>
 #include <type_traits>
 
+#include <godot_cpp/variant/utility_functions.hpp>
+
 using namespace godot;
 
 // Godot's sampling rate
 // https://docs.godotengine.org/en/4.2/contributing/development/core_and_modules/custom_audiostreams.html
 constexpr double SAMPLING_RATE = 44100.0;
+
+const char *LOOPING_SIGNAL = "looped";
 
 Ref<AudioStreamGDMPT> AudioStreamGDMPT::load_from_buffer(
 		const PackedByteArray &buffer) {
@@ -67,6 +71,10 @@ Ref<AudioStreamGDMPT> AudioStreamGDMPT::load_from_buffer(
 
 	stream->module.set_pointers(std::move(module), std::move(interactive));
 
+	for (int32_t i = 0; i < stream->get_num_channels(); i++) {
+		stream->volume_settings.push_back(stream->get_channel_volume(i));
+	}
+
 	return stream;
 }
 
@@ -84,29 +92,11 @@ String AudioStreamGDMPT::get_filename() const {
 }
 
 void AudioStreamGDMPT::set_loop(bool enable) {
-	ERR_FAIL_COND(module.is_null());
-
-	int32_t repeat_count;
-	if (enable) {
-		repeat_count = -1;
-	} else {
-		repeat_count = 0;
-	}
-	int error = module.set_repeat_count(repeat_count);
-	if (error == 0) {
-		ERR_FAIL_EDMSG("`openmpt_module_set_repeat_count` failed");
-	}
+	loop = enable;
 }
 
 bool AudioStreamGDMPT::get_loop() const {
-	ERR_FAIL_COND_V(module.is_null(), false);
-
-	auto repeat_count = module.get_repeat_count();
-	if (repeat_count) {
-		return repeat_count.value() == -1;
-	} else {
-		ERR_FAIL_V_EDMSG(false, "`openmpt_module_get_repeat_count` failed");
-	}
+	return loop;
 }
 
 void AudioStreamGDMPT::set_tempo_factor(double factor) {
@@ -146,11 +136,12 @@ void AudioStreamGDMPT::set_channel_volume(int32_t channel, double volume) {
 	int error = module.set_channel_volume(channel, volume);
 	if (error == 0) {
 		ERR_FAIL_EDMSG("`set_channel_volume` failed");
-	} 
+	}
+	volume_settings[channel] = volume;
 }
 
 double godot::AudioStreamGDMPT::get_channel_volume(int32_t channel) const {
-	ERR_FAIL_COND(module.is_null());
+	ERR_FAIL_COND_V(module.is_null(), 0.0);
 
 	auto volume = module.get_channel_volume(channel);
 	if (volume) {
@@ -210,7 +201,14 @@ double AudioStreamGDMPT::_get_bpm() const {
 	}
 }
 
-int32_t AudioStreamGDMPT::_get_beat_count() const { return 0; }
+int32_t AudioStreamGDMPT::_get_beat_count() const {
+	// Unsupported
+	return 0;
+}
+
+void godot::AudioStreamGDMPT::emit_looping_signal() {
+	emit_signal(LOOPING_SIGNAL);
+}
 
 void AudioStreamGDMPT::_bind_methods() {
 	ClassDB::bind_static_method("AudioStreamGDMPT",
@@ -219,6 +217,8 @@ void AudioStreamGDMPT::_bind_methods() {
 	ClassDB::bind_static_method("AudioStreamGDMPT",
 			D_METHOD("load_from_file", "path"),
 			&AudioStreamGDMPT::load_from_file);
+
+	ClassDB::bind_method(D_METHOD("get_filename"), &AudioStreamGDMPT::get_filename);
 
 	ClassDB::bind_method(D_METHOD("set_loop", "enable"),
 			&AudioStreamGDMPT::set_loop);
@@ -229,7 +229,17 @@ void AudioStreamGDMPT::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_tempo_factor"),
 			&AudioStreamGDMPT::get_tempo_factor);
 
+	ClassDB::bind_method(D_METHOD("get_num_channels"),
+			&AudioStreamGDMPT::get_num_channels);
+
+	ClassDB::bind_method(D_METHOD("set_channel_volume", "channel", "volume"),
+			&AudioStreamGDMPT::set_channel_volume);
+	ClassDB::bind_method(D_METHOD("get_channel_volume", "channel"),
+			&AudioStreamGDMPT::get_channel_volume);
+
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "loop"), "set_loop", "get_loop");
+
+	ADD_SIGNAL(MethodInfo(LOOPING_SIGNAL));
 }
 
 AudioStreamGDMPT::AudioStreamGDMPT() {}
@@ -246,8 +256,7 @@ void AudioStreamGDMPTPlayback::_stop() { active = false; }
 bool AudioStreamGDMPTPlayback::_is_playing() const { return active; }
 
 int32_t AudioStreamGDMPTPlayback::_get_loop_count() const {
-	// No easy way to keep track of the number of loops
-	return 0;
+	return loops;
 }
 
 double AudioStreamGDMPTPlayback::_get_playback_position() const {
@@ -282,15 +291,40 @@ int32_t AudioStreamGDMPTPlayback::_mix_resampled(AudioFrame *dst_buffer,
 	static_assert(std::alignment_of<AudioFrame>::value ==
 			std::alignment_of<float>::value);
 
-	auto frames_rendered = stream->module.read_interleaved_float_stereo(
-			static_cast<int32_t>(SAMPLING_RATE),
-			static_cast<size_t>(frame_count),
-			reinterpret_cast<float *>(dst_buffer));
-	if (frames_rendered) {
-		return frames_rendered.value();
-	} else {
-		ERR_FAIL_V_EDMSG(0, "`openmpt_module_read_interleaved_float_stereo` failed");
+	ERR_FAIL_NULL_V(stream, 0);
+	ERR_FAIL_COND_V(stream->module.is_null(), 0);
+
+	// Guard against potential infinite loop
+	int loop_guard = 0;
+
+	int32_t total_rendered = 0;
+	int32_t remaining_frames = frame_count;
+
+	while (total_rendered < frame_count && loop_guard < 3) {
+		loop_guard++;
+		auto frames_rendered = stream->module.read_interleaved_float_stereo(
+				static_cast<int32_t>(SAMPLING_RATE),
+				static_cast<size_t>(remaining_frames),
+				reinterpret_cast<float *>(dst_buffer + total_rendered));
+		if (frames_rendered) {
+			total_rendered += frames_rendered.value();
+			remaining_frames -= frames_rendered.value();
+
+			bool end_of_song = frames_rendered.value() == 0;
+			if (end_of_song && stream->loop) {
+				loops++;
+				_seek(0.0);
+				// `set_position_seconds` resets the volume
+				for (int i = 0; i < stream->volume_settings.size(); i++) {
+					stream->set_channel_volume(i, stream->volume_settings[i]);
+				}
+				stream->emit_looping_signal();
+			}
+		} else {
+			ERR_FAIL_V_EDMSG(0, "`openmpt_module_read_interleaved_float_stereo` failed");
+		}
 	}
+	return total_rendered;
 }
 
 double AudioStreamGDMPTPlayback::_get_stream_sampling_rate() const {

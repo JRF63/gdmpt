@@ -18,6 +18,7 @@ class AudioStreamGDMPT : public AudioStream {
 	OpenMPTModule module;
 	String filename;
 	bool loop = false;
+	std::vector<double> volume_settings;
 
 	void emit_looping_signal();
 
@@ -67,6 +68,7 @@ class AudioStreamGDMPTPlayback : public AudioStreamPlaybackResampled {
 
 	Ref<AudioStreamGDMPT> stream;
 	bool active = false;
+	int32_t loops = 0;
 
 protected:
 	static void _bind_methods();

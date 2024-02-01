@@ -29,6 +29,8 @@ public:
 
 	void error_clear();
 
+	// TODO: std::variant to return error codes
+
 	int set_repeat_count(int32_t repeat_count);
 	std::optional<int32_t> get_repeat_count() const;
 
