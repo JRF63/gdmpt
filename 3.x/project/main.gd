@@ -27,7 +27,7 @@ func _ready():
 	# Keep above `2048 / AudioServer.get_mix_rate()` to avoid audio glitches
 	player.buffer_length = 2048 / AudioServer.get_mix_rate()
 	
-	player.connect("finished", self, "_on_song_finished")
+	player.connect("end_of_song", self, "_on_song_finished")
 	
 	tempo_slider.connect("value_changed", self, "_on_tempo_changed")
 	pitch_slider.connect("value_changed", self, "_on_pitch_changed")
