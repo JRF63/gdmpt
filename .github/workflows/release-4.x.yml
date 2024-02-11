@@ -1,0 +1,48 @@
+name: GDExtension
+on: workflow_dispatch
+
+jobs:
+  build:
+    runs-on: ${{ matrix.runner }}
+    name: ${{ matrix.name }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - identifier: Linux
+            name: Linux
+            runner: ubuntu-20.04
+            platform: linux
+            arch: x86_64
+
+          - identifier: Windows
+            name: Windows
+            runner: windows-latest
+            platform: windows
+            arch: x86_64
+
+    steps:
+      - name: Checkout project
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Setup python and scons
+        uses: ./.github/actions/scons
+
+      - name: Setup MSVC
+        if: ${{ startsWith(matrix.identifier, 'Windows') }}
+        uses: ./.github/actions/msvc
+
+      - name: Compile
+        run: |
+          cd 4.x
+          scons target=template_debug platform='${{ matrix.platform }}' arch='${{ matrix.arch }}' -j2
+          scons target=template_release platform='${{ matrix.platform }}' arch='${{ matrix.arch }}' -j2
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ github.event.repository.name }}
+          path: |
+            ${{ github.workspace }}/4.x/project/
