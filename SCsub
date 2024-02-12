@@ -79,6 +79,7 @@ elif openmpt_env["platform"] == "macos":
     openmpt_env.Append(CPPPATH=["openmpt/include/mpg123/ports/Xcode/"])
 else:
     openmpt_env.Append(CPPPATH=["openmpt/include/mpg123/ports/makefile/"])
+    openmpt_env.Append(CPPPATH=["openmpt/include/ogg/ports/makefile/"])
 
 sources = Glob("openmpt/common/*.cpp")
 sources += Glob("openmpt/libopenmpt/*.cpp")
