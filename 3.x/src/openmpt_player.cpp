@@ -93,6 +93,11 @@ void OpenMPTPlayer::seek(const real_t to_position) {
     ERR_FAIL_NULL(module);
     try {
         module->set_position_seconds(to_position);
+
+        // `set_position_seconds` resets the volume
+        for (int i = 0; i < volume_settings.size(); i++) {
+            set_channel_volume(i, volume_settings[i]);
+        }
     } catch (const openmpt::exception &e) {
         ERR_PRINT(e.what());
     }
@@ -196,7 +201,15 @@ double OpenMPTPlayer::get_pitch_factor() const {
     }
 }
 
-void OpenMPTPlayer::set_loop(bool enable) { loop = enable; }
+void OpenMPTPlayer::set_loop(bool enable) {
+    loop = enable;
+
+    try {
+        module->ctl_set_text("play.at_end", enable ? "continue" : "stop");
+    } catch (const openmpt::exception &e) {
+        ERR_PRINT(e.what());
+    }
+}
 
 bool OpenMPTPlayer::get_loop() const { return loop; }
 
@@ -299,12 +312,6 @@ void OpenMPTPlayer::fill_buffer() {
                     emit_signal(END_OF_SONG);
 
                     if (loop) {
-                        module->set_position_seconds(0.0);
-
-                        // `set_position_seconds` resets the volume
-                        for (int i = 0; i < volume_settings.size(); i++) {
-                            set_channel_volume(i, volume_settings[i]);
-                        }
                         continue;
                     } else {
                         stop();

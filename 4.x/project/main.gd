@@ -86,6 +86,7 @@ func _on_filter_selected(index: int):
 	
 func _on_play():
 	player.play()
+	player.seek(94.0)
 	
 func _on_pause():
 	player.stream_paused = not player.stream_paused
