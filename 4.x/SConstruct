@@ -24,13 +24,11 @@ sources = Glob("src/*.cpp")
 
 if env["platform"] == "macos":
     library = env.SharedLibrary(
-        "project/bin/{}.{}.{}.framework/{}.{}.{}".format(
+        "project/bin/{}.{}.{}{}".format(
             env["target_name"],
             env["platform"],
             env["target"],
-            env["target_name"],
-            env["platform"],
-            env["target"],
+            env["SHLIBSUFFIX"],
         ),
         source=sources,
     )

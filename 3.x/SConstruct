@@ -2,6 +2,8 @@
 
 env = SConscript("godot-cpp/SConstruct")
 
+openmpt_library = SConscript("../SCsub", exports="env")
+
 # This code uses C++17's std::optional and libopenmpt 0.7.x is also C++17
 cpp14 = "-std=c++14"
 cpp17 = "-std=c++17"
@@ -10,13 +12,12 @@ if env["platform"] == "windows":
     cpp17 = "/std:c++17"
 for i in range(len(env["CCFLAGS"])):
     if env["CCFLAGS"][i] == cpp14:
-        env["CCFLAGS"][i] = cpp17
+        env["CCFLAGS"][i] = ""
+env.Append(CXXFLAGS=[cpp17])
 
 env["is_msvc"] = False
 if env["platform"] == "windows":
     env["is_msvc"] = True
-
-openmpt_library = SConscript("../SCsub", exports="env")
 
 opts = Variables([], ARGUMENTS)
 opts.Add("target_name", "Name of the library to be built by SCons", "libgdmpt")

@@ -13,7 +13,8 @@ opts.Add(
 )
 opts.Update(env)
 
-openmpt_env = env.Clone()
+openmpt_env = env.Clone(CC="clang", CXX="clang++")
+openmpt_env.Append(CCFLAGS=["-Wno-macro-redefined"])
 
 openmpt_env.Append(
     CPPDEFINES=[
@@ -21,7 +22,7 @@ openmpt_env.Append(
         "MPT_WITH_OGG",
         "MPT_WITH_VORBIS",
         "MPT_WITH_VORBISFILE",
-        "MPT_WITH_ZLIB",
+        # "MPT_WITH_ZLIB",
         "LIBOPENMPT_BUILD",
         openmpt_env["mpg123_opt"],
     ]
@@ -30,6 +31,13 @@ openmpt_env.Append(
 if openmpt_env.get("is_msvc", False):
     openmpt_env.Append(CPPDEFINES=["MPT_BUILD_MSVC", "UNICODE"])
     openmpt_env.Append(CCFLAGS=["/Zc:preprocessor"])
+else:
+    cpp14 = "-std=c++14"
+    cpp17 = "-std=c++17"
+    for i in range(len(env["CCFLAGS"])):
+        if openmpt_env["CCFLAGS"][i] == cpp14:
+            openmpt_env["CCFLAGS"][i] = ""
+    openmpt_env.Append(CXXFLAGS=[cpp17])
 
 # OpenMPT uses exceptions
 if openmpt_env.get("is_msvc", False):
