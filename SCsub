@@ -22,7 +22,7 @@ openmpt_env.Append(
         "MPT_WITH_OGG",
         "MPT_WITH_VORBIS",
         "MPT_WITH_VORBISFILE",
-        # "MPT_WITH_ZLIB",
+        "MPT_WITH_ZLIB",
         "LIBOPENMPT_BUILD",
         openmpt_env["mpg123_opt"],
     ]
@@ -49,6 +49,12 @@ else:
 # Unix-es
 if openmpt_env["platform"] != "windows":
     openmpt_env.Append(CPPDEFINES=["STDC", "Z_HAVE_UNISTD_H"])  # Used by zlib
+
+# macOS min version
+if openmpt_env["platform"] == "macos" or openmpt_env["platform"] == "osx":
+    openmpt_env.Append(CCFLAGS=["-mmacosx-version-min=11.0"])
+    openmpt_env.Append(CXXFLAGS=["-mmacosx-version-min=11.0"])
+    openmpt_env.Append(LINKFLAGS=["-mmacosx-version-min=11.0"])
 
 if openmpt_env["target"] == "template_release" or openmpt_env["target"] == "release":
     # Enable LTO for better performance

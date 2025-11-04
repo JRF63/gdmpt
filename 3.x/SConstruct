@@ -23,11 +23,25 @@ opts = Variables([], ARGUMENTS)
 opts.Add("target_name", "Name of the library to be built by SCons", "libgdmpt")
 opts.Update(env)
 
+libname = "{}.{}.{}.{}{}".format(
+        env["target_name"],
+        env["platform"],
+        env["target"],
+        env["arch_suffix"],
+        env["SHLIBSUFFIX"],
+    )
+
 if env["target"] == "release":
     if env.get("is_msvc", False):
         env.Append(LINKFLAGS=["/LTCG"])
     else:
         env.Append(LINKFLAGS=["-flto"])
+
+if env["platform"] == "osx":
+    env.Append(CCFLAGS=["-mmacosx-version-min=11.0"])
+    env.Append(CXXFLAGS=["-mmacosx-version-min=11.0"])
+    env.Append(LINKFLAGS=["-dynamiclib", "-install_name", "@rpath/{}".format(libname)])
+    env.Append(LINKFLAGS=["-mmacosx-version-min=11.0"])
 
 env.Append(LIBS=[openmpt_library])
 if env.get("is_msvc", False):
@@ -36,14 +50,9 @@ if env.get("is_msvc", False):
 env.Append(CPPPATH=["src/", "../openmpt"])
 sources = Glob("src/*.cpp")
 
+
 library = env.SharedLibrary(
-    "project/bin/{}.{}.{}.{}{}".format(
-        env["target_name"],
-        env["platform"],
-        env["target"],
-        env["arch_suffix"],
-        env["SHLIBSUFFIX"],
-    ),
+    "project/bin/{}".format(libname),
     source=sources,
 )
 

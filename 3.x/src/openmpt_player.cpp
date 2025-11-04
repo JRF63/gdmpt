@@ -202,6 +202,8 @@ double OpenMPTPlayer::get_pitch_factor() const {
 }
 
 void OpenMPTPlayer::set_loop(bool enable) {
+    ERR_FAIL_NULL(module);
+    
     loop = enable;
 
     try {
