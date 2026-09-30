@@ -18,28 +18,14 @@ openmpt_env = env.Clone()
 # CCFLAGS is for both C and C++
 openmpt_env["CCFLAGS"] = [f for f in openmpt_env["CCFLAGS"] if (not f.startswith("-std=c++") and not f.startswith("/std:c++"))]
 
-openmpt_env.Append(
-    CPPDEFINES=[
-        "MPT_WITH_MPG123",
-        "MPT_WITH_OGG",
-        "MPT_WITH_VORBIS",
-        "MPT_WITH_VORBISFILE",
-        "MPT_WITH_ZLIB",
-        "LIBOPENMPT_BUILD",
-        openmpt_env["mpg123_opt"],
-    ]
-)
+openmpt_env.Append(CPPDEFINES=[openmpt_env["mpg123_opt"]])
 
 if openmpt_env.get("is_msvc", False):
-    openmpt_env.Append(CPPDEFINES=["MPT_BUILD_MSVC", "UNICODE"])
+    openmpt_env.Append(CPPDEFINES=["MPT_BUILD_MSVC"])
     openmpt_env.Append(CCFLAGS=["/Zc:preprocessor"])
-    openmpt_env.Append(CXXFLAGS=["/std:c++17"])
-else:
-    openmpt_env.Append(CXXFLAGS=["-std=c++17"])
 
 # OpenMPT uses exceptions
 if openmpt_env.get("is_msvc", False):
-    openmpt_env.Append(CPPDEFINES=[("_HAS_EXCEPTIONS", 1)])
     openmpt_env.Append(CXXFLAGS=["/EHsc"])
 else:
     openmpt_env.Append(CXXFLAGS=["-fexceptions"])
@@ -76,18 +62,12 @@ openmpt_env.Replace(
         "openmpt/include/mpg123/src/libmpg123",
         "openmpt/include/ogg/include",
         "openmpt/include/ogg/src",
+        "openmpt/include/ogg/ports/makefile",
         "openmpt/include/vorbis/include/",
         "openmpt/include/vorbis/lib/",
         "openmpt/include/zlib/",
     ]
 )
-if openmpt_env.get("is_msvc", False):
-    openmpt_env.Append(CPPPATH=["openmpt/include/mpg123/ports/MSVC++/"])
-elif openmpt_env["platform"] == "macos":
-    openmpt_env.Append(CPPPATH=["openmpt/include/mpg123/ports/Xcode/"])
-else:
-    openmpt_env.Append(CPPPATH=["openmpt/include/mpg123/ports/makefile/"])
-    openmpt_env.Append(CPPPATH=["openmpt/include/ogg/ports/makefile/"])
 
 sources = Glob("openmpt/common/*.cpp")
 sources += Glob("openmpt/libopenmpt/*.cpp")
@@ -125,7 +105,9 @@ sources += Glob(
 
 sources += Glob("openmpt/include/zlib/*.c")
 
-suffix = ".{}.{}".format(env["platform"], env["target"])
-library = openmpt_env.StaticLibrary("bin/libopenmpt{}".format(suffix), source=sources)
+lib_ext = env.get("LIBSUFFIX") if env.get("LIBSUFFIX") else (".lib" if env["platform"] == "windows" and not env.get("use_mingw") else ".a")
+
+suffix = ".{}.{}{}".format(env["platform"], env["target"], lib_ext)
+library = openmpt_env.StaticLibrary("bin/openmpt{}".format(suffix), source=sources)
 
 Return("library")

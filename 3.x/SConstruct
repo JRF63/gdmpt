@@ -1,25 +1,46 @@
 #!/usr/bin/env python
+import os
 
 env = SConscript("godot-cpp/SConstruct")
+
+env["is_msvc"] = False
+if env["platform"] == "windows" and not env.get("use_mingw"):
+    env["is_msvc"] = True
+
+if env["platform"] == "windows" and not env.get("is_msvc", False):
+    # Tell SCons to use GCC's LTO-aware archiver and ranlib wrapper
+    env["AR"] = "gcc-ar"
+    env["RANLIB"] = "gcc-ranlib"
 
 # This code uses C++17's std::optional and libopenmpt 0.7.x is also C++17
 cpp14 = "-std=c++14"
 cpp17 = "-std=c++17"
-if env["platform"] == "windows":
+if env.get("is_msvc", False):
     cpp14 = "/std:c++14"
     cpp17 = "/std:c++17"
 for i in range(len(env["CCFLAGS"])):
     if env["CCFLAGS"][i] == cpp14:
         env["CCFLAGS"][i] = cpp17
+env.Append(CXXFLAGS=[cpp17])
 
-env["is_msvc"] = False
+env.Append(
+    CPPDEFINES=[
+        "MPT_WITH_MPG123",
+        "MPT_WITH_OGG",
+        "MPT_WITH_VORBIS",
+        "MPT_WITH_VORBISFILE",
+        "MPT_WITH_ZLIB",
+        "LIBOPENMPT_BUILD",
+    ]
+)
 if env["platform"] == "windows":
-    env["is_msvc"] = True
+    env.Append(CPPDEFINES=["UNICODE"])
+    env.Append(CPPDEFINES=[("_HAS_EXCEPTIONS", 1)])
 
 openmpt_library = SConscript("../SCsub", exports="env")
 
 opts = Variables([], ARGUMENTS)
-opts.Add("target_name", "Name of the library to be built by SCons", "libgdmpt")
+opts.Add("target_name", "Name of the library to be built by SCons", "gdmpt")
 opts.Update(env)
 
 if env["target"] == "release":

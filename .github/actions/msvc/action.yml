@@ -7,5 +7,5 @@ runs:
       uses: ammaraskar/msvc-problem-matcher@master
 
     - name: Setup MSVC itself
-      uses: ilammy/msvc-dev-cmd@v1
+      uses: step-security/msvc-dev-cmd@v1
     
