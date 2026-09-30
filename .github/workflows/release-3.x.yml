@@ -13,19 +13,18 @@ jobs:
             name: Linux
             runner: ubuntu-latest
             platform: linux
-            arch: x86_64
 
           - identifier: Windows
             name: Windows
             runner: windows-latest
             platform: windows
-            arch: x86_64
+            cc: cl
+            cxx: cl
 
           - identifier: macOS
             name: macOS
             runner: macos-latest
-            platform: macos
-            arch: universal
+            platform: osx
 
     steps:
       - name: Checkout project
@@ -43,7 +42,7 @@ jobs:
       - name: Compile
         run: |
           cd 3.x
-          scons target=release platform='${{ matrix.platform }}' arch='${{ matrix.arch }}' -j2
+          scons target=release platform='${{ matrix.platform }}' -j2
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
