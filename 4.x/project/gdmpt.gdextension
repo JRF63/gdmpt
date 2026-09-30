@@ -11,5 +11,5 @@ windows.release.x86_64 = "res://bin/libgdmpt.windows.template_release.x86_64.dll
 linux.debug.x86_64 = "res://bin/libgdmpt.linux.template_debug.x86_64.so"
 linux.release.x86_64 = "res://bin/libgdmpt.linux.template_release.x86_64.so"
 
-osx.debug.x86_64 = "res://bin/libgdmpt.macos.template_debug.dylib"
-osx.release.x86_64 = "res://bin/libgdmpt.macos.template_release.dylib"
+macos.debug = "res://bin/libgdmpt.macos.template_debug.dylib"
+macos.release = "res://bin/libgdmpt.macos.template_release.dylib"

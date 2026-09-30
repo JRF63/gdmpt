@@ -23,13 +23,20 @@ env.Append(CPPPATH=["src/", "../openmpt"])
 sources = Glob("src/*.cpp")
 
 if env["platform"] == "macos":
-    library = env.SharedLibrary(
-        "project/bin/{}.{}.{}{}".format(
+    libname = "{}.{}.{}{}".format(
             env["target_name"],
             env["platform"],
             env["target"],
             env["SHLIBSUFFIX"],
-        ),
+        )
+        
+    env.Append(CCFLAGS=["-mmacosx-version-min=11.0"])
+    env.Append(CXXFLAGS=["-mmacosx-version-min=11.0"])
+    env.Append(LINKFLAGS=["-dynamiclib", "-install_name", "@rpath/{}".format(libname)])
+    env.Append(LINKFLAGS=["-mmacosx-version-min=11.0"])
+
+    library = env.SharedLibrary(
+        "project/bin/{}".format(libname),
         source=sources,
     )
 elif env["platform"] == "ios":
