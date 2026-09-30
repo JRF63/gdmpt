@@ -66,25 +66,32 @@ margin_bottom = 73.0
 text = "Channels"
 
 [node name="PlayButton" type="Button" parent="."]
-margin_left = 330.0
-margin_top = 380.0
-margin_right = 390.0
-margin_bottom = 420.0
+margin_left = 332.0
+margin_top = 360.0
+margin_right = 392.0
+margin_bottom = 400.0
 text = "Play"
 
 [node name="PauseButton" type="Button" parent="."]
-margin_left = 330.0
-margin_top = 430.0
-margin_right = 390.0
-margin_bottom = 470.0
+margin_left = 332.0
+margin_top = 405.0
+margin_right = 392.0
+margin_bottom = 445.0
 text = "Pause"
 
 [node name="StopButton" type="Button" parent="."]
-margin_left = 330.0
-margin_top = 480.0
-margin_right = 390.0
-margin_bottom = 520.0
+margin_left = 331.0
+margin_top = 452.0
+margin_right = 391.0
+margin_bottom = 492.0
 text = "Stop"
+
+[node name="EndButton" type="Button" parent="."]
+margin_left = 332.0
+margin_top = 498.0
+margin_right = 392.0
+margin_bottom = 538.0
+text = "End"
 
 [node name="InterpolationButton" type="OptionButton" parent="."]
 margin_left = 88.0

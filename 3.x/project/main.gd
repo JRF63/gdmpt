@@ -7,6 +7,7 @@ onready var channels_container = get_node("ChannelsContainer")
 onready var play_button = get_node("PlayButton")
 onready var pause_button = get_node("PauseButton")
 onready var stop_button = get_node("StopButton")
+onready var end_button = get_node("EndButton")
 onready var interpolation_button = get_node("InterpolationButton")
 
 var num_loops = 0
@@ -37,6 +38,7 @@ func _ready():
 	play_button.connect("pressed", self, "_on_play")
 	pause_button.connect("pressed", self, "_on_pause")
 	stop_button.connect("pressed", self, "_on_stop")
+	end_button.connect("pressed", self, "_on_end")
 	
 	for filter in ["Default", "None", "Linear", "Cubic", "Sinc"]:
 		interpolation_button.add_item(filter)
@@ -95,11 +97,9 @@ func _on_pause():
 func _on_stop():
 	player.stop()
 	
+func _on_end():
+	# Jump to end of bananasplit.mod
+	player.seek(95.0)
+	
 func _on_filter_selected(index):
 	player.interpolation_filter = interpolation_values[index]
-	
-func _unhandled_key_input(event):
-	if event is InputEventKey and event.pressed:
-		if event.scancode == KEY_1:
-			# Jump to end of bananasplit.mod
-			player.seek(95.0)

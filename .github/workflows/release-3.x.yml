@@ -1,4 +1,4 @@
-name: GDExtension
+name: GDNative
 on: workflow_dispatch
 
 jobs:
@@ -42,15 +42,14 @@ jobs:
 
       - name: Compile
         run: |
-          cd 4.x
-          scons target=template_debug platform='${{ matrix.platform }}' arch='${{ matrix.arch }}' -j2
-          scons target=template_release platform='${{ matrix.platform }}' arch='${{ matrix.arch }}' -j2
+          cd 3.x
+          scons target=release platform='${{ matrix.platform }}' arch='${{ matrix.arch }}' -j2
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: ${{ github.event.repository.name }}-${{ matrix.platform }}
-          path: ${{ github.workspace }}/4.x/project/
+          path: ${{ github.workspace }}/3.x/project/
   combine-artifacts:
     name: Combine
     runs-on: ubuntu-latest

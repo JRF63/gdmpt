@@ -15,6 +15,9 @@ opts.Update(env)
 
 openmpt_env = env.Clone()
 
+# CCFLAGS is for both C and C++
+openmpt_env["CCFLAGS"] = [f for f in openmpt_env["CCFLAGS"] if (not f.startswith("-std=c++") and not f.startswith("/std:c++"))]
+
 openmpt_env.Append(
     CPPDEFINES=[
         "MPT_WITH_MPG123",
@@ -30,6 +33,9 @@ openmpt_env.Append(
 if openmpt_env.get("is_msvc", False):
     openmpt_env.Append(CPPDEFINES=["MPT_BUILD_MSVC", "UNICODE"])
     openmpt_env.Append(CCFLAGS=["/Zc:preprocessor"])
+    openmpt_env.Append(CXXFLAGS=["/std:c++17"])
+else:
+    openmpt_env.Append(CXXFLAGS=["-std=c++17"])
 
 # OpenMPT uses exceptions
 if openmpt_env.get("is_msvc", False):
@@ -63,8 +69,10 @@ openmpt_env.Replace(
         "openmpt/soundlib/plugins/dmo/",
         "openmpt/src/",
         "openmpt/include/",
-        "openmpt/include/mpg123/src",
+        "openmpt/include/mpg123/ports/generic",
+        "openmpt/include/mpg123/src/common",
         "openmpt/include/mpg123/src/compat",
+        "openmpt/include/mpg123/src/include",
         "openmpt/include/mpg123/src/libmpg123",
         "openmpt/include/ogg/include",
         "openmpt/include/ogg/src",
@@ -97,10 +105,7 @@ sources += Glob(
         "openmpt/include/mpg123/src/libmpg123/dct64_altivec.c",
         "openmpt/include/mpg123/src/libmpg123/dct64_i386.c",
         "openmpt/include/mpg123/src/libmpg123/dct64_i486.c",
-        "openmpt/include/mpg123/src/libmpg123/dither.c",
         "openmpt/include/mpg123/src/libmpg123/getcpuflags_arm.c",
-        "openmpt/include/mpg123/src/libmpg123/lfs_alias.c",
-        "openmpt/include/mpg123/src/libmpg123/lfs_wrap.c",
         "openmpt/include/mpg123/src/libmpg123/synth_altivec.c",
         "openmpt/include/mpg123/src/libmpg123/synth_i486.c",
         "openmpt/include/mpg123/src/libmpg123/testcpu.c",
