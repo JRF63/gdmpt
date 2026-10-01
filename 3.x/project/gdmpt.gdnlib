@@ -13,6 +13,6 @@ OSX.64="res://bin/libgdmpt.osx.release.64.dylib"
 
 [dependencies]
 
-X11.64=[  ]
 Windows.64=[  ]
+X11.64=[  ]
 OSX.64=[  ]
