@@ -7,6 +7,7 @@ env["is_msvc"] = False
 if env["platform"] == "windows" and not env.get("use_mingw"):
     env["is_msvc"] = True
 
+# MinGW
 if env["platform"] == "windows" and not env.get("is_msvc", False):
     # Tell SCons to use GCC's LTO-aware archiver and ranlib wrapper
     env["AR"] = "gcc-ar"
@@ -23,24 +24,10 @@ for i in range(len(env["CCFLAGS"])):
         env["CCFLAGS"][i] = cpp17
 env.Append(CXXFLAGS=[cpp17])
 
-env.Append(
-    CPPDEFINES=[
-        "MPT_WITH_MPG123",
-        "MPT_WITH_OGG",
-        "MPT_WITH_VORBIS",
-        "MPT_WITH_VORBISFILE",
-        "MPT_WITH_ZLIB",
-        "LIBOPENMPT_BUILD",
-    ]
-)
-if env["platform"] == "windows":
-    env.Append(CPPDEFINES=["UNICODE"])
-    env.Append(CPPDEFINES=[("_HAS_EXCEPTIONS", 1)])
-
 openmpt_library = SConscript("../SCsub", exports="env")
 
 opts = Variables([], ARGUMENTS)
-opts.Add("target_name", "Name of the library to be built by SCons", "gdmpt")
+opts.Add("target_name", "Name of the library to be built by SCons", "libgdmpt")
 opts.Update(env)
 
 if env["target"] == "release":
@@ -50,7 +37,7 @@ if env["target"] == "release":
         env.Append(LINKFLAGS=["-flto"])
 
 env.Append(LIBS=[openmpt_library])
-if env.get("is_msvc", False):
+if env["platform"] == "windows":
     env.Append(LIBS=["Shlwapi"])  # Used by mpg123
 
 env.Append(CPPPATH=["src/", "../openmpt"])

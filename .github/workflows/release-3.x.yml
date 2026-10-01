@@ -9,20 +9,23 @@ jobs:
       fail-fast: false
       matrix:
         include:
-        #   - identifier: Linux
-        #     name: Linux
-        #     runner: ubuntu-latest
-        #     platform: linux
+          - identifier: Linux
+            name: Linux
+            runner: ubuntu-latest
+            platform: linux
+            flags: ""
 
           - identifier: Windows
             name: Windows
             runner: windows-latest
             platform: windows
+            flags: "use_mingw=yes"
 
-        #   - identifier: macOS
-        #     name: macOS
-        #     runner: macos-latest
-        #     platform: osx
+          - identifier: macOS
+            name: macOS
+            runner: macos-latest
+            platform: osx
+            flags: ""
 
     steps:
       - name: Checkout project
@@ -36,7 +39,7 @@ jobs:
       - name: Compile
         run: |
           cd 3.x
-          scons target=release platform='${{ matrix.platform }}' use_mingw=yes
+          scons target=release platform='${{ matrix.platform }}' ${{ matrix.flags }}
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
